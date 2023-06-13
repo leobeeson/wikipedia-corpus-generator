@@ -1,28 +1,20 @@
 import requests
 
 
-class CategoryManager:
+class PageManager:
 
 
     def __init__(self) -> None:
-        self.categories: dict[str, list[str]] = {}
+        self.pages: dict[str, list[str]] = {}
 
 
-    def get_category_tree(self, domain: str, degree: int, current_degree: int = 0) -> dict[str, list[str]]:
-        if current_degree > degree:
-            return
-
-        subcategories = self.get_subcategories(domain)
-        self.categories[domain] = subcategories
-        current_degree += 1
-
-        for subcategory in subcategories:
-            self.get_category_tree(subcategory, degree, current_degree)
-
-        return self.categories
+    def get_pages_tree(self, categories: dict[str, list[str]]) -> dict[str, list[str]]:
+        for category in categories:
+            self.pages[category] = self.get_category_pages(category)
+        return self.pages
 
 
-    def get_subcategories(self, category: str) -> list[str]:
+    def get_category_pages(self, category: str) -> list[str]:
         S = requests.Session()
         URL = "https://es.wikipedia.org/w/api.php"
         PARAMS = {
@@ -30,11 +22,11 @@ class CategoryManager:
             "format": "json",
             "list": "categorymembers",
             "cmtitle": "Categoría:" + category,
-            "cmtype": "subcat",
+            "cmtype": "page",
             "cmlimit": 500
         }
 
-        subcategories = []
+        pages = []
         while True:
             try:
                 R = S.get(url=URL, params=PARAMS)
@@ -42,7 +34,7 @@ class CategoryManager:
                 DATA = R.json()
 
                 if 'query' in DATA:
-                    subcategories += [subcategory['title'].replace('Categoría:', '') for subcategory in DATA['query']['categorymembers']]
+                    pages += [page['title'] for page in DATA['query']['categorymembers']]
 
                 if 'continue' in DATA:
                     PARAMS['cmcontinue'] = DATA['continue']['cmcontinue']
@@ -62,11 +54,13 @@ class CategoryManager:
                 print(f'An unexpected error occurred: {err}')
                 break
 
-        return subcategories
+        return pages
 
 
 if __name__ == "__main__":
+    from category_manager import CategoryManager
     cm = CategoryManager()
-    subcategories = cm.get_subcategories("Códigos jurídicos")
-    categories = cm.get_category_tree("Códigos jurídicos", 2)
-
+    categories = cm.get_category_tree("Términos jurídicos", 2)
+    pm = PageManager()
+    pages = pm.get_pages_tree(categories)
+    print(pages)
