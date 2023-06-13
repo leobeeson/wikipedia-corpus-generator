@@ -5,9 +5,23 @@ class CategoryManager:
 
 
     def __init__(self) -> None:
-        pass
+        self.categories = {}
 
-    
+
+    def get_category_tree(self, domain: str, degree: int, current_degree: int = 0) -> dict[str, list[str]]:
+        if current_degree > degree:
+            return
+
+        subcategories = self.get_subcategories(domain)
+        self.categories[domain] = subcategories
+        current_degree += 1
+
+        for subcategory in subcategories:
+            self.get_category_tree(subcategory, degree, current_degree)
+
+        return self.categories
+
+
     def get_subcategories(self, category: str) -> list[str]:
         S = requests.Session()
         URL = "https://es.wikipedia.org/w/api.php"
@@ -54,3 +68,5 @@ class CategoryManager:
 if __name__ == "__main__":
     cm = CategoryManager()
     subcategories = cm.get_subcategories("Códigos jurídicos")
+    categories = cm.get_category_tree("Códigos jurídicos", 2)
+
