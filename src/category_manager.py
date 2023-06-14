@@ -1,13 +1,16 @@
 import requests
 
 
+from src.utils import timeit
+
+
 class CategoryManager:
 
 
     def __init__(self) -> None:
         self.categories: dict[str, list[str]] = {}
 
-
+    @timeit
     def get_category_tree(self, domain: str, degree: int, current_degree: int = 0) -> dict[str, list[str]]:
         if current_degree > degree:
             return
@@ -63,6 +66,10 @@ class CategoryManager:
                 break
 
         return subcategories
+
+
+    def filter_categories(self, categories: dict[str, list[str]]) -> list[str]:
+        pass
 
 
 if __name__ == "__main__":

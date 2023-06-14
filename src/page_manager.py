@@ -1,6 +1,9 @@
 import requests
 
 
+from src.utils.telemetry import timeit
+
+
 class PageManager:
 
 
@@ -8,6 +11,7 @@ class PageManager:
         self.pages: dict[str, list[str]] = {}
 
 
+    @timeit
     def get_pages_tree(self, categories: dict[str, list[str]]) -> dict[str, list[str]]:
         for category in categories:
             self.pages[category] = self.get_category_pages(category)
