@@ -1,5 +1,4 @@
 import requests
-import copy
 
 
 from src.utils.telemetry import timeit
@@ -69,69 +68,49 @@ class CategoryManager:
         return subcategories
 
 
-    def filter_categories(self, full_match_blacklist: dict[str, list[str]], partial_match_blacklist: dict[str, list[str]]) -> tuple[dict[str, list[str]], dict[str, list[str]]]:
-        category_whitelist = copy.deepcopy(self.categories)  # Create a deep copy of self.categories
-        category_blacklist = {}
+    def filter_categories(
+            self, 
+            categories: dict[str, list[str]], 
+            full_match_blacklist: list[str], 
+            partial_blacklist_items: list[str]
+            ) -> dict[str, list[str]]:
+        categories_copy: dict[str, list[str]] = categories.copy()  # We'll iterate over a copy of categories
 
-        # Check for global blacklists
-        global_full_match_blacklist = full_match_blacklist.get("_GLOBAL", [])
-        global_partial_match_blacklist = partial_match_blacklist.get("_GLOBAL", [])
-
-        for category, subcategories in list(category_whitelist.items()):  # Use list to get a static copy of keys and values
-            # Combine category-specific and global blacklists
-            full_blacklist_items = full_match_blacklist.get(category, []) + global_full_match_blacklist
-            partial_blacklist_items = partial_match_blacklist.get(category, []) + global_partial_match_blacklist
-
-            # Full match: if category matches the blacklist, it's excluded
-            if category in full_blacklist_items:
-                self._filter_full_match_categories(category, category_whitelist, category_blacklist, full_blacklist_items)
-
-            # Partial match: if category contains a substring in the blacklist, it's excluded
-            elif any(blacklist_item in category for blacklist_item in partial_blacklist_items):
-                self._filter_partial_match_categories(category, subcategories, partial_blacklist_items, category_whitelist, category_blacklist)
-            
-        return category_whitelist, category_blacklist
-
-
-    def _filter_full_match_categories(self, category, category_whitelist, category_blacklist, full_blacklist_items):
-        if category in category_whitelist:
-            category_blacklist[category] = category_whitelist.pop(category)
-            self._remove_subcategories(category_whitelist, category_blacklist, category_blacklist[category])
-            for subcategory in category_blacklist[category]:
-                if subcategory in full_blacklist_items:
-                    self._remove_subcategories(category_whitelist, category_blacklist, [subcategory])
-
-
-    def _filter_partial_match_categories(self, category, subcategories, partial_blacklist_items, category_whitelist, category_blacklist):
-        category_blacklist[category] = []  # Initialize empty list for blacklist
-        for subcategory in list(subcategories):  # Use list to get a static copy of subcategories
-            # Partial match: if any item in partial_match_blacklist is a substring of subcategory
-            if any(blackitem in subcategory for blackitem in partial_blacklist_items):
-                category_whitelist[category].remove(subcategory)
-                category_blacklist[category].append(subcategory)
-                if subcategory in category_whitelist:
-                    # Move subcategory and its subcategories to blacklist
-                    category_blacklist[subcategory] = category_whitelist.pop(subcategory)
-                    self._remove_subcategories(category_whitelist, category_blacklist, category_blacklist[subcategory])
+        for category, subcategories in categories_copy.items():
+            for subcategory in list(subcategories):  # Iterate over a copy of subcategories
+                if subcategory in full_match_blacklist:
+                    # Remove subcategory from list
+                    categories[category].remove(subcategory)
+                    print(f"From category {category.upper()}: removed subcategory {subcategory.upper()}")
+                    # Remove subcategory and its subcategories from categories
+                    self._remove_subcategories(categories, subcategory)
+                elif any(blacklist_item in subcategory for blacklist_item in partial_blacklist_items):
+                    try:
+                        categories[category].remove(subcategory)
+                        print(f"From category {category.upper()}: removed subcategory {subcategory.upper()}")
+                    except KeyError:
+                        print(f"KeyError: {category.upper()} all ready removed.")
+                    self._remove_subcategories(categories, subcategory)
+        return categories
 
 
     @staticmethod
-    def _remove_subcategories(category_whitelist, category_blacklist, subcategories):
-        for subcategory in subcategories:
-            if subcategory in category_whitelist:
-                category_blacklist[subcategory] = category_whitelist.pop(subcategory)
-                # Recursive call with subcategories of current subcategory
-                CategoryManager._remove_subcategories(category_whitelist, category_blacklist, category_blacklist[subcategory])
-
+    def _remove_subcategories(categories: dict[str, list[str]], category: str) -> None:
+        if category in categories:
+            # Recursive call with subcategories of current category
+            for subcategory in categories[category]:
+                CategoryManager._remove_subcategories(categories, subcategory)
+            del categories[category]
+            print(f"Removed category {category.upper()}")
 
 
 if __name__ == "__main__":
+    import pprint
     cm = CategoryManager()
     categories = cm.get_category_tree("Códigos jurídicos", 3)
-    full_match_blacklist: dict[str, list[str]] = {"_GLOBAL": [
-        "Sharia"
-    ]}
-    partial_match_blacklist: dict[str, list[str]] = {"_GLOBAL": [
+    full_match_blacklist: list[str] = ["Sharia"]
+    partial_match_blacklist: list[str] = [
+        "por país",
         "LGBT", 
         "brujería",
         "Anexos",
@@ -153,5 +132,6 @@ if __name__ == "__main__":
         "Actores",
         "Actrices",
         "Directoras"
-    ]}
-    category_whitelist, category_blacklist = cm.filter_categories(full_match_blacklist, partial_match_blacklist)
+    ]
+    category_whitelist= cm.filter_categories(categories, full_match_blacklist, partial_match_blacklist)
+    pprint.pprint(category_whitelist)
