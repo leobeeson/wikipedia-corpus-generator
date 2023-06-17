@@ -10,8 +10,15 @@ class CategoryManager:
     def __init__(self) -> None:
         self.categories: dict[str, list[str]] = {}
 
+    
     @timeit
-    def get_category_tree(self, domain: str, degree: int, current_degree: int = 0) -> dict[str, list[str]]:
+    def get_categories(self, domains: list[str], degree: int) -> dict[str, list[str]]:
+        for domain in domains:
+            self.get_category_tree(domain, degree)
+        return self.categories
+
+    
+    def get_category_tree(self, domain: str, degree: int, current_degree: int = 0) -> None:
         if current_degree > degree:
             return
 
@@ -21,8 +28,6 @@ class CategoryManager:
 
         for subcategory in subcategories:
             self.get_category_tree(subcategory, degree, current_degree)
-
-        return self.categories
 
 
     def get_subcategories(self, category: str) -> list[str]:
@@ -80,8 +85,11 @@ class CategoryManager:
             for subcategory in list(subcategories):  # Iterate over a copy of subcategories
                 if subcategory in full_match_blacklist:
                     # Remove subcategory from list
-                    categories[category].remove(subcategory)
-                    print(f"From category {category.upper()}: removed subcategory {subcategory.upper()}")
+                    try:
+                        categories[category].remove(subcategory)
+                        print(f"From category {category.upper()}: removed subcategory {subcategory.upper()}")
+                    except KeyError:
+                        print(f"KeyError: {category.upper()} all ready removed.")
                     # Remove subcategory and its subcategories from categories
                     self._remove_subcategories(categories, subcategory)
                 elif any(blacklist_item in subcategory for blacklist_item in partial_blacklist_items):
