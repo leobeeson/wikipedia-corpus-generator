@@ -1,5 +1,6 @@
 import requests
 import logging
+import json
 
 
 from src.utils.telemetry import timeit
@@ -8,15 +9,19 @@ from src.utils.telemetry import timeit
 logger = logging.getLogger(__name__)
 
 
+category_label = str
+
+
 class CategoryManager:
 
 
     def __init__(self) -> None:
-        self.categories: dict[str, list[str]] = {}
+        self.categories: dict[category_label, list[category_label]] = {}
+        self.categories_filtered: dict[category_label, list[category_label]] = {}
 
     
     @timeit
-    def get_categories(self, domains: list[str], degree: int) -> dict[str, list[str]]:
+    def get_categories(self, domains: list[category_label], degree: int) -> dict[category_label, list[category_label]]:
         for domain in domains:
             self.get_category_tree(domain, degree)
         return self.categories
@@ -101,11 +106,23 @@ class CategoryManager:
                     except KeyError:
                         logger.info(f"Remove subcategory {subcategory.upper()} - from category {category.upper()} ### Category {category.upper()} had been previously removed.")
                     self._remove_subcategories(categories, subcategory)
-        return categories
+        self.categories_filtered = categories
+
+
+    def save_categories(self, domains: list[category_label], degree: int, prefix: str = "", filtered: bool = True) -> None:
+        for domain in domains:
+            category_name = domain.replace(" ", "_").lower()
+            if filtered:
+                subcategories = self._get_subcategories_dfs(self.categories_filtered, domain)
+            else:
+                subcategories = self._get_subcategories_dfs(self.categories, domain)
+            filename = f"outputs/{prefix}{category_name}_categories_degree_{degree}.json"
+            with open(filename, "w") as f:
+                json.dump({domain: subcategories}, f, indent=4, ensure_ascii=False)
 
 
     @staticmethod
-    def _remove_subcategories(categories: dict[str, list[str]], category: str) -> None:
+    def _remove_subcategories(categories: dict[category_label, list[category_label]], category: category_label) -> None:
         if category in categories:
             for subcategory in categories[category]:
                 CategoryManager._remove_subcategories(categories, subcategory)
@@ -113,10 +130,23 @@ class CategoryManager:
             logger.info(f"Remove category {category.upper()}")
 
 
+    @staticmethod
+    def _get_subcategories_dfs(categories: dict[category_label, list[category_label]], category: category_label) -> dict[category_label, list[category_label]]:
+        subcategories: dict[category_label, list[category_label]] = {}
+        if category in categories:
+            subcategories[category] = categories[category]
+            for subcategory in categories[category]:
+                subcategories.update(CategoryManager._get_subcategories_dfs(categories, subcategory))
+        return subcategories
+
+
 if __name__ == "__main__":
     import pprint
     cm = CategoryManager()
-    categories = cm.get_category_tree("Códigos jurídicos", 3)
+    cm.get_category_tree("Códigos jurídicos", 3)
+    output_cats = cm._get_subcategories_dfs(cm.categories, "Códigos jurídicos")
+    output_cats == cm.categories
+    output_cats = cm._get_subcategories_dfs(cm.categories, "Códigos por país")
     full_match_blacklist: list[str] = ["Sharia"]
     partial_match_blacklist: list[str] = [
         "por país",
@@ -142,5 +172,7 @@ if __name__ == "__main__":
         "Actrices",
         "Directoras"
     ]
-    category_whitelist= cm.filter_categories(categories, full_match_blacklist, partial_match_blacklist)
-    pprint.pprint(category_whitelist)
+    cm.filter_categories(cm.categories, full_match_blacklist, partial_match_blacklist)
+    pprint.pprint(cm.categories_filtered)
+    output_cats = cm._get_subcategories_dfs(cm.categories_filtered, "Códigos jurídicos")
+    output_cats == cm.categories_filtered

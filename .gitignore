@@ -49,3 +49,6 @@ l10n/
 
 logs/
 !logs/.gitkeep
+
+outputs
+!outputs/.gitkeep

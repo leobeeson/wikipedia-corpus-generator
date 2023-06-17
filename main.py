@@ -1,6 +1,3 @@
-import pprint
-
-
 from src.category_manager import CategoryManager
 from src.page_manager import PageManager
 from src.loggers.log_utils import setup_logger
@@ -10,7 +7,6 @@ logger = setup_logger("")
 
 
 def main():
-    cm = CategoryManager()
     positive_categories: list[str] = [
         "Códigos jurídicos", 
         "Casos judiciales", 
@@ -19,8 +15,11 @@ def main():
         "Derecho de Colombia", 
         "Rama Judicial de Colombia"
     ]
-    categories = cm.get_categories(positive_categories, 2)
-    pprint.pprint(categories)
+    degree = 2
+    cm = CategoryManager()
+    categories = cm.get_categories(positive_categories, degree)
+    # cm.save_categories(positive_categories, degree, prefix="raw_", filtered=False)
+    
     full_match_blacklist: list[str] = [
         "Sharia",
         "Sharia", 
@@ -65,12 +64,12 @@ def main():
         "Actrices",
         "Directoras"
     ]
-    category_whitelist= cm.filter_categories(categories, full_match_blacklist, partial_match_blacklist)
-    pprint.pprint(category_whitelist)
+    cm.filter_categories(categories, full_match_blacklist, partial_match_blacklist)
+    cm.save_categories(positive_categories, degree, prefix="filtered_", filtered=True)  
+    
     pm = PageManager()
-    pages = pm.get_pages_tree(category_whitelist)
+    pages = pm.get_pages_tree(cm.categories_filtered)
     total_pages = sum([len(pages[category]) for category in pages])
-    pprint.pprint(pages)
     print(f"Total pages: {total_pages}")
 
 
