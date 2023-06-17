@@ -1,7 +1,11 @@
 import requests
+import logging
 
 
 from src.utils.telemetry import timeit
+
+
+logger = logging.getLogger(__name__)
 
 
 class CategoryManager:
@@ -58,16 +62,16 @@ class CategoryManager:
                     break
 
             except requests.exceptions.HTTPError as http_err:
-                print(f'HTTP error occurred: {http_err}')
+                logger.warning(f'HTTP error occurred: {http_err}')
                 break
             except requests.exceptions.ConnectionError as conn_err:
-                print(f'Error connecting: {conn_err}')
+                logger.warning(f'Error connecting: {conn_err}')
                 break
             except requests.exceptions.Timeout as timeout_err:
-                print(f'Timeout error: {timeout_err}')
+                logger.warning(f'Timeout error: {timeout_err}')
                 break
             except requests.exceptions.RequestException as err:
-                print(f'An unexpected error occurred: {err}')
+                logger.warning(f'An unexpected error occurred: {err}')
                 break
 
         return subcategories
@@ -84,20 +88,18 @@ class CategoryManager:
         for category, subcategories in categories_copy.items():
             for subcategory in list(subcategories):  # Iterate over a copy of subcategories
                 if subcategory in full_match_blacklist:
-                    # Remove subcategory from list
                     try:
                         categories[category].remove(subcategory)
-                        print(f"From category {category.upper()}: removed subcategory {subcategory.upper()}")
+                        logger.info(f"Remove subcategory {subcategory.upper()} - from category {category.upper()}")
                     except KeyError:
-                        print(f"KeyError: {category.upper()} all ready removed.")
-                    # Remove subcategory and its subcategories from categories
+                        logger.info(f"Remove subcategory {subcategory.upper()} - from category {category.upper()} ### Category {category.upper()} had been previously removed.")
                     self._remove_subcategories(categories, subcategory)
                 elif any(blacklist_item in subcategory for blacklist_item in partial_blacklist_items):
                     try:
                         categories[category].remove(subcategory)
-                        print(f"From category {category.upper()}: removed subcategory {subcategory.upper()}")
+                        logger.info(f"Remove subcategory {subcategory.upper()} - from category {category.upper()}")
                     except KeyError:
-                        print(f"KeyError: {category.upper()} all ready removed.")
+                        logger.info(f"Remove subcategory {subcategory.upper()} - from category {category.upper()} ### Category {category.upper()} had been previously removed.")
                     self._remove_subcategories(categories, subcategory)
         return categories
 
@@ -105,11 +107,10 @@ class CategoryManager:
     @staticmethod
     def _remove_subcategories(categories: dict[str, list[str]], category: str) -> None:
         if category in categories:
-            # Recursive call with subcategories of current category
             for subcategory in categories[category]:
                 CategoryManager._remove_subcategories(categories, subcategory)
             del categories[category]
-            print(f"Removed category {category.upper()}")
+            logger.info(f"Remove category {category.upper()}")
 
 
 if __name__ == "__main__":

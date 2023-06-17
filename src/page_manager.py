@@ -1,4 +1,8 @@
 import requests
+import logging
+
+
+logger = logging.getLogger(__name__)
 
 
 from src.utils.telemetry import timeit
@@ -46,16 +50,16 @@ class PageManager:
                     break
 
             except requests.exceptions.HTTPError as http_err:
-                print(f'HTTP error occurred: {http_err}')
+                logger.warning(f'HTTP error occurred: {http_err}')
                 break
             except requests.exceptions.ConnectionError as conn_err:
-                print(f'Error connecting: {conn_err}')
+                logger.warning(f'Error connecting: {conn_err}')
                 break
             except requests.exceptions.Timeout as timeout_err:
-                print(f'Timeout error: {timeout_err}')
+                logger.warning(f'Timeout error: {timeout_err}')
                 break
             except requests.exceptions.RequestException as err:
-                print(f'An unexpected error occurred: {err}')
+                logger.warning(f'An unexpected error occurred: {err}')
                 break
 
         return pages

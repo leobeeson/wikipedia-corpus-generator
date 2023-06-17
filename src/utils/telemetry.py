@@ -1,4 +1,8 @@
 import time
+import logging
+
+
+logger = logging.getLogger(__name__)
 
 
 def timeit(method):
@@ -11,6 +15,6 @@ def timeit(method):
             name = kw.get('log_name', method.__name__.upper())
             kw['log_time'][name] = int((te - ts) * 1000)
         else:
-            print('%r  %2.2f secs' % (method.__name__, (te - ts)))
+            logger.info('%r  %2.2f secs' % (method.__name__, (te - ts)))
         return result
     return timed
