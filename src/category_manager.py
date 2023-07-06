@@ -10,28 +10,33 @@ logger = logging.getLogger(__name__)
 
 
 category_label = str
+category_tree = dict[category_label, list[category_label]]
+taxonomy = dict[category_label, category_tree]
 
 
 class CategoryManager:
 
 
     def __init__(self) -> None:
-        self.categories: dict[category_label, list[category_label]] = {}
-        self.categories_filtered: dict[category_label, list[category_label]] = {}
+        self.degree: int = 0
+        self.categories: category_tree = {}
+        self.categories_filtered: category_tree = {}
+        self.domain_taxonomies: taxonomy = {}
 
     
     @timeit
-    def get_categories(self, domains: list[category_label], degree: int) -> dict[category_label, list[category_label]]:
+    def get_categories(self, domains: list[category_label], degree: int) -> category_tree:
+        self.degree = degree
         for domain in domains:
             self.get_category_tree(domain, degree)
         return self.categories
 
     
-    def get_category_tree(self, domain: str, degree: int, current_degree: int = 0) -> None:
+    def get_category_tree(self, domain: category_label, degree: int, current_degree: int = 0) -> None:
         if current_degree > degree:
             return
 
-        subcategories = self.get_subcategories(domain)
+        subcategories: list[category_label] = self.get_subcategories(domain)
         self.categories[domain] = subcategories
         current_degree += 1
 
@@ -39,7 +44,7 @@ class CategoryManager:
             self.get_category_tree(subcategory, degree, current_degree)
 
 
-    def get_subcategories(self, category: str) -> list[str]:
+    def get_subcategories(self, category: category_label) -> list[category_label]:
         S = requests.Session()
         URL = "https://es.wikipedia.org/w/api.php"
         PARAMS = {
@@ -51,7 +56,7 @@ class CategoryManager:
             "cmlimit": 500
         }
 
-        subcategories = []
+        subcategories: list[category_label] = []
         while True:
             try:
                 R = S.get(url=URL, params=PARAMS)
@@ -84,14 +89,14 @@ class CategoryManager:
 
     def filter_categories(
             self, 
-            categories: dict[str, list[str]], 
-            full_match_blacklist: list[str], 
+            categories: category_tree, 
+            full_match_blacklist: list[category_label], 
             partial_blacklist_items: list[str]
-            ) -> dict[str, list[str]]:
-        categories_copy: dict[str, list[str]] = categories.copy()  # We'll iterate over a copy of categories
+            ) -> None:
+        categories_copy: category_tree = categories.copy()
 
         for category, subcategories in categories_copy.items():
-            for subcategory in list(subcategories):  # Iterate over a copy of subcategories
+            for subcategory in list(subcategories):
                 if subcategory in full_match_blacklist:
                     try:
                         categories[category].remove(subcategory)
@@ -109,16 +114,23 @@ class CategoryManager:
         self.categories_filtered = categories
 
 
-    def save_categories(self, domains: list[category_label], degree: int, prefix: str = "", filtered: bool = True) -> None:
+    def generate_domain_taxonomies(self, domains: list[category_label], filtered: bool = True) -> None:
         for domain in domains:
-            category_name = domain.replace(" ", "_").lower()
             if filtered:
-                subcategories = self._get_subcategories_dfs(self.categories_filtered, domain)
+                domain_taxonomy = self._get_subcategories_dfs(self.categories_filtered, domain)
             else:
-                subcategories = self._get_subcategories_dfs(self.categories, domain)
-            filename = f"outputs/{prefix}{category_name}_categories_degree_{degree}.json"
-            with open(filename, "w") as f:
-                json.dump({domain: subcategories}, f, indent=4, ensure_ascii=False)
+                domain_taxonomy = self._get_subcategories_dfs(self.categories, domain)
+            self.domain_taxonomies[domain] = domain_taxonomy
+
+
+    def save_domain_taxonomies(self, domains: list[category_label], prefix: str = "") -> None:
+        for domain in domains:
+            if domain in self.domain_taxonomies:
+                domain_taxonomy: taxonomy = self.domain_taxonomies[domain]
+                category_name = domain.replace(" ", "_").lower()
+                filename = f"outputs/{prefix}{category_name}_categories_degree_{self.degree}.json"
+                with open(filename, "w") as f:
+                    json.dump({domain: domain_taxonomy}, f, indent=4, ensure_ascii=False)
 
 
     @staticmethod
@@ -131,19 +143,19 @@ class CategoryManager:
 
 
     @staticmethod
-    def _get_subcategories_dfs(categories: dict[category_label, list[category_label]], category: category_label) -> dict[category_label, list[category_label]]:
-        subcategories: dict[category_label, list[category_label]] = {}
-        if category in categories:
-            subcategories[category] = categories[category]
-            for subcategory in categories[category]:
-                subcategories.update(CategoryManager._get_subcategories_dfs(categories, subcategory))
-        return subcategories
+    def _get_subcategories_dfs(category_tree: dict[category_label, list[category_label]], domain: category_label) -> dict[category_label, list[category_label]]:
+        subcategory_tree: dict[category_label, list[category_label]] = {}
+        if domain in category_tree:
+            subcategory_tree[domain] = category_tree[domain]
+            for subcategory in category_tree[domain]:
+                subcategory_tree.update(CategoryManager._get_subcategories_dfs(category_tree, subcategory))
+        return subcategory_tree
 
 
 if __name__ == "__main__":
     import pprint
     cm = CategoryManager()
-    cm.get_category_tree("Códigos jurídicos", 3)
+    categories = cm.get_categories(["Códigos jurídicos"], 3)
     output_cats = cm._get_subcategories_dfs(cm.categories, "Códigos jurídicos")
     output_cats == cm.categories
     output_cats = cm._get_subcategories_dfs(cm.categories, "Códigos por país")

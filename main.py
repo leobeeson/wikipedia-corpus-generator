@@ -9,13 +9,13 @@ logger = setup_logger("")
 def main():
     positive_categories: list[str] = [
         "Códigos jurídicos", 
-        "Casos judiciales", 
-        "Principios del derecho", 
-        "Términos jurídicos", 
-        "Derecho de Colombia", 
-        "Rama Judicial de Colombia"
+        # "Casos judiciales", 
+        # "Principios del derecho", 
+        # "Términos jurídicos", 
+        # "Derecho de Colombia", 
+        # "Rama Judicial de Colombia"
     ]
-    degree = 2
+    degree = 3
     cm = CategoryManager()
     categories = cm.get_categories(positive_categories, degree)
     # cm.save_categories(positive_categories, degree, prefix="raw_", filtered=False)
@@ -65,12 +65,8 @@ def main():
         "Directoras"
     ]
     cm.filter_categories(categories, full_match_blacklist, partial_match_blacklist)
-    cm.save_categories(positive_categories, degree, prefix="filtered_", filtered=True)  
-    
-    pm = PageManager()
-    pages = pm.get_pages_tree(cm.categories_filtered)
-    total_pages = sum([len(pages[category]) for category in pages])
-    print(f"Total pages: {total_pages}")
+    cm.generate_domain_taxonomies(positive_categories, filtered=True)
+    cm.save_domain_taxonomies(positive_categories, prefix="filtered_")  
 
 
 if __name__ == "__main__":
