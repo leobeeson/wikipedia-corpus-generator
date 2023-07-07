@@ -17,19 +17,46 @@ taxonomy = dict[category_label, category_tree]
 class CategoryManager:
 
 
-    def __init__(self) -> None:
-        self.degree: int = 0
+    def __init__(
+            self, 
+            domains: list[category_label],
+            full_match_blacklist: list[category_label], 
+            partial_blacklist_items: list[str],
+            degree: int = 1
+            ) -> None:
+        self.domains: list[category_label] = domains
+        self.full_match_blacklist: list[category_label] = full_match_blacklist
+        self.partial_blacklist_items: list[str] = partial_blacklist_items
+        self.degree: int = degree
         self.categories: category_tree = {}
-        self.categories_filtered: category_tree = {}
+        # self.categories_filtered: category_tree = {}
         self.domain_taxonomies: taxonomy = {}
+
+
+    @timeit
+    def get_domain_taxonomies(
+            self,
+            filter_in_place: bool = True,
+            save: bool = True,
+            output_path: str = "outputs/",
+            prefix: str = ""
+            ) -> None:
+        self.get_categories(filter_in_place)
+        if not filter_in_place:
+            self.filter_categories()
+        self.generate_domain_taxonomies()
+        if save:
+            self.save_domain_taxonomies(output_path, prefix)
 
     
     @timeit
-    def get_categories(self, domains: list[category_label], degree: int) -> category_tree:
-        self.degree = degree
-        for domain in domains:
-            self.get_category_tree(domain, degree)
-        return self.categories
+    def get_categories(self, filter_in_place: bool) -> None:
+        for domain in self.domains:
+            if filter_in_place:
+                self.get_filtered_category_tree(domain, self.degree)
+                self.filter_categories()
+            else:
+                self.get_category_tree(domain, self.degree)
 
     
     def get_category_tree(self, domain: category_label, degree: int, current_degree: int = 0) -> None:
@@ -42,6 +69,20 @@ class CategoryManager:
 
         for subcategory in subcategories:
             self.get_category_tree(subcategory, degree, current_degree)
+
+
+    def get_filtered_category_tree(self, domain: category_label, degree: int, current_degree: int = 0) -> None:
+        if current_degree > degree:
+            return
+
+        subcategories: list[category_label] = self.get_subcategories(domain)
+        self.categories[domain] = subcategories
+        current_degree += 1
+
+        for subcategory in subcategories:
+            if subcategory not in self.full_match_blacklist:
+                if not any(blacklist_item in subcategory for blacklist_item in self.partial_blacklist_items):
+                    self.get_filtered_category_tree(subcategory, degree, current_degree)
 
 
     def get_subcategories(self, category: category_label) -> list[category_label]:
@@ -87,48 +128,43 @@ class CategoryManager:
         return subcategories
 
 
-    def filter_categories(
-            self, 
-            categories: category_tree, 
-            full_match_blacklist: list[category_label], 
-            partial_blacklist_items: list[str]
-            ) -> None:
-        categories_copy: category_tree = categories.copy()
+    def filter_categories(self) -> None:
+        categories_copy: category_tree = self.categories.copy()
 
         for category, subcategories in categories_copy.items():
             for subcategory in list(subcategories):
-                if subcategory in full_match_blacklist:
+                if subcategory in self.full_match_blacklist:
                     try:
-                        categories[category].remove(subcategory)
+                        self.categories[category].remove(subcategory)
                         logger.info(f"Remove subcategory {subcategory.upper()} - from category {category.upper()}")
                     except KeyError:
                         logger.info(f"Remove subcategory {subcategory.upper()} - from category {category.upper()} ### Category {category.upper()} had been previously removed.")
-                    self._remove_subcategories(categories, subcategory)
-                elif any(blacklist_item in subcategory for blacklist_item in partial_blacklist_items):
+                    self._remove_subcategories(self.categories, subcategory)
+                elif any(blacklist_item in subcategory for blacklist_item in self.partial_blacklist_items):
                     try:
-                        categories[category].remove(subcategory)
+                        self.categories[category].remove(subcategory)
                         logger.info(f"Remove subcategory {subcategory.upper()} - from category {category.upper()}")
                     except KeyError:
                         logger.info(f"Remove subcategory {subcategory.upper()} - from category {category.upper()} ### Category {category.upper()} had been previously removed.")
-                    self._remove_subcategories(categories, subcategory)
-        self.categories_filtered = categories
+                    self._remove_subcategories(self.categories, subcategory)
+        # self.categories_filtered = self.categories
 
 
-    def generate_domain_taxonomies(self, domains: list[category_label], filtered: bool = True) -> None:
-        for domain in domains:
-            if filtered:
-                domain_taxonomy = self._get_subcategories_dfs(self.categories_filtered, domain)
-            else:
-                domain_taxonomy = self._get_subcategories_dfs(self.categories, domain)
+    def generate_domain_taxonomies(self) -> None:
+        for domain in self.domains:
+            # if filtered:
+            #     domain_taxonomy = self._get_subcategories_dfs(self.categories_filtered, domain)
+            # else:
+            domain_taxonomy = self._get_subcategories_dfs(self.categories, domain)
             self.domain_taxonomies[domain] = domain_taxonomy
 
 
-    def save_domain_taxonomies(self, domains: list[category_label], prefix: str = "") -> None:
-        for domain in domains:
+    def save_domain_taxonomies(self, output_path: str, prefix: str) -> None:
+        for domain in self.domains:
             if domain in self.domain_taxonomies:
                 domain_taxonomy: taxonomy = self.domain_taxonomies[domain]
                 category_name = domain.replace(" ", "_").lower()
-                filename = f"outputs/{prefix}{category_name}_categories_degree_{self.degree}.json"
+                filename = f"{output_path}{prefix}{category_name}_categories_degree_{self.degree}.json"
                 with open(filename, "w") as f:
                     json.dump({domain: domain_taxonomy}, f, indent=4, ensure_ascii=False)
 
@@ -154,12 +190,8 @@ class CategoryManager:
 
 if __name__ == "__main__":
     import pprint
-    cm = CategoryManager()
-    categories = cm.get_categories(["Códigos jurídicos"], 3)
-    output_cats = cm._get_subcategories_dfs(cm.categories, "Códigos jurídicos")
-    output_cats == cm.categories
-    output_cats = cm._get_subcategories_dfs(cm.categories, "Códigos por país")
-    full_match_blacklist: list[str] = ["Sharia"]
+    domains: list[category_label] = ["Códigos jurídicos"]
+    full_match_blacklist: list[category_label] = ["Sharia"]
     partial_match_blacklist: list[str] = [
         "por país",
         "LGBT", 
@@ -184,7 +216,27 @@ if __name__ == "__main__":
         "Actrices",
         "Directoras"
     ]
-    cm.filter_categories(cm.categories, full_match_blacklist, partial_match_blacklist)
-    pprint.pprint(cm.categories_filtered)
-    output_cats = cm._get_subcategories_dfs(cm.categories_filtered, "Códigos jurídicos")
-    output_cats == cm.categories_filtered
+    degree: int = 3
+    
+    cm_in_place = CategoryManager(domains, full_match_blacklist, partial_match_blacklist, degree)
+    cm_in_place.get_categories(filter_in_place=True)
+    pprint.pprint(cm_in_place.categories)
+    
+    cm = CategoryManager(domains, full_match_blacklist, partial_match_blacklist, degree)
+    cm.get_categories(filter_in_place=False)
+    pprint.pprint(cm.categories)
+
+    output_cats = cm._get_subcategories_dfs(cm.categories, "Códigos jurídicos")
+    output_cats == cm.categories
+    output_cats = cm._get_subcategories_dfs(cm.categories, "Códigos por país")
+    pprint.pprint(output_cats)
+    
+    cm.filter_categories()
+    pprint.pprint(cm.categories)
+    cm_in_place.categories == cm.categories
+
+    output_cats = cm._get_subcategories_dfs(cm.categories, "Códigos jurídicos")
+    output_cats == cm.categories
+
+    cm_pipeline = CategoryManager(domains, full_match_blacklist, partial_match_blacklist, degree)
+    cm_pipeline.get_domain_taxonomies(output_path="temp/", prefix="test_")

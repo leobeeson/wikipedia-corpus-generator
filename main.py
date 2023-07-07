@@ -6,23 +6,22 @@ from src.loggers.log_utils import setup_logger
 logger = setup_logger("")
 
 
+category_label = str
+
+
 def main():
-    positive_categories: list[str] = [
+    positive_domains: list[category_label] = [
         "Códigos jurídicos", 
-        # "Casos judiciales", 
-        # "Principios del derecho", 
-        # "Términos jurídicos", 
-        # "Derecho de Colombia", 
-        # "Rama Judicial de Colombia"
+        "Casos judiciales", 
+        "Principios del derecho", 
+        "Términos jurídicos", 
+        "Derecho de Colombia", 
+        "Rama Judicial de Colombia"
     ]
-    degree = 3
-    cm = CategoryManager()
-    categories = cm.get_categories(positive_categories, degree)
-    # cm.save_categories(positive_categories, degree, prefix="raw_", filtered=False)
-    
-    full_match_blacklist: list[str] = [
+    negative_domains: list[category_label] = []
+    domains = positive_domains + negative_domains
+    full_match_blacklist: list[category_label] = [
         "Sharia",
-        "Sharia", 
         "Error judicial", 
         "Personas", 
         "Referéndums", 
@@ -38,7 +37,8 @@ def main():
         "Derecho alimentario",
         "Política alimentaria",
         "Películas por género",
-        "Revisión judicial"
+        "Revisión judicial",
+        "Ciudadanía honoraria"
         ]
     partial_match_blacklist: list[str] = [
         "por país",
@@ -64,9 +64,9 @@ def main():
         "Actrices",
         "Directoras"
     ]
-    cm.filter_categories(categories, full_match_blacklist, partial_match_blacklist)
-    cm.generate_domain_taxonomies(positive_categories, filtered=True)
-    cm.save_domain_taxonomies(positive_categories, prefix="filtered_")  
+    degree = 2
+    cm = CategoryManager(domains, full_match_blacklist, partial_match_blacklist, degree)
+    cm.get_domain_taxonomies(prefix="filtered_gamma_")
 
 
 if __name__ == "__main__":
