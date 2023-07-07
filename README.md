@@ -39,3 +39,18 @@
   "category_c": [],
 }
 ```
+
+## Notes
+
+### Retrieving All Subcategories without Filtering In place
+
+If you intend to generate the full subcategory tree for a given domain (i.e. `filter_in_place == False`) for a depth greater than 2 (i.e. `degree > 2`), you could run into a `RecursionError: maximum recursion depth exceeded`.
+
+To **potentially** solve this, you will have to increase the maximum depth of recursive calls in Python with [sys.setrecursionlimit(limit)](https://docs.python.org/2/library/sys.html#sys.setrecursionlimit), e.g.:
+
+```python
+import sys
+sys.setrecursionlimit(3000)
+```
+
+Also, as per [here](https://stackoverflow.com/a/7081504) take into account that `limit` in `sys.setrecursionlimit(limit: int)` actually refers to the max stack depth and not really recursion depth.
