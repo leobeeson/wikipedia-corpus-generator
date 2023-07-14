@@ -3,15 +3,11 @@ import logging
 import json
 
 
+from src.utils.custom_types import category_label, category_tree, taxonomy
 from src.utils.telemetry import timeit
 
 
 logger = logging.getLogger(__name__)
-
-
-category_label = str
-category_tree = dict[category_label, list[category_label]]
-taxonomy = dict[category_label, category_tree]
 
 
 class CategoryManager:
@@ -29,63 +25,62 @@ class CategoryManager:
         self.partial_blacklist_items: list[str] = partial_blacklist_items
         self.degree: int = degree
         self.categories: category_tree = {}
-        # self.categories_filtered: category_tree = {}
-        self.domain_taxonomies: taxonomy = {}
+        self.taxonomies: taxonomy = {}
 
 
     @timeit
-    def get_domain_taxonomies(
+    def retrieve_taxonomies(
             self,
             filter_in_place: bool = True,
             save: bool = True,
             output_path: str = "outputs/",
             prefix: str = ""
             ) -> None:
-        self.get_categories(filter_in_place)
+        self.retrieve_categories(filter_in_place)
         if not filter_in_place:
-            self.filter_categories()
-        self.generate_domain_taxonomies()
+            self.filter_subcategories()
+        self.generate_taxonomies()
         if save:
-            self.save_domain_taxonomies(output_path, prefix)
+            self.save_taxonomies(output_path, prefix)
 
     
     @timeit
-    def get_categories(self, filter_in_place: bool) -> None:
+    def retrieve_categories(self, filter_in_place: bool) -> None:
         for domain in self.domains:
             if filter_in_place:
-                self.get_filtered_category_tree(domain, self.degree)
-                self.filter_categories()
+                self.filtered_recursive_category_search(domain, self.degree)
+                self.filter_subcategories()
             else:
-                self.get_category_tree(domain, self.degree)
+                self.recursive_category_search(domain, self.degree)
 
     
-    def get_category_tree(self, domain: category_label, degree: int, current_degree: int = 0) -> None:
+    def recursive_category_search(self, domain: category_label, degree: int, current_degree: int = 0) -> None:
         if current_degree > degree:
             return
 
-        subcategories: list[category_label] = self.get_subcategories(domain)
+        subcategories: list[category_label] = self.retrieve_subcategories(domain)
         self.categories[domain] = subcategories
         current_degree += 1
 
         for subcategory in subcategories:
-            self.get_category_tree(subcategory, degree, current_degree)
+            self.recursive_category_search(subcategory, degree, current_degree)
 
 
-    def get_filtered_category_tree(self, domain: category_label, degree: int, current_degree: int = 0) -> None:
+    def filtered_recursive_category_search(self, domain: category_label, degree: int, current_degree: int = 0) -> None:
         if current_degree > degree:
             return
 
-        subcategories: list[category_label] = self.get_subcategories(domain)
+        subcategories: list[category_label] = self.retrieve_subcategories(domain)
         self.categories[domain] = subcategories
         current_degree += 1
 
         for subcategory in subcategories:
             if subcategory not in self.full_match_blacklist:
                 if not any(blacklist_item in subcategory for blacklist_item in self.partial_blacklist_items):
-                    self.get_filtered_category_tree(subcategory, degree, current_degree)
+                    self.filtered_recursive_category_search(subcategory, degree, current_degree)
 
 
-    def get_subcategories(self, category: category_label) -> list[category_label]:
+    def retrieve_subcategories(self, category: category_label) -> list[category_label]:
         S = requests.Session()
         URL = "https://es.wikipedia.org/w/api.php"
         PARAMS = {
@@ -128,7 +123,7 @@ class CategoryManager:
         return subcategories
 
 
-    def filter_categories(self) -> None:
+    def filter_subcategories(self) -> None:
         categories_copy: category_tree = self.categories.copy()
 
         for category, subcategories in categories_copy.items():
@@ -147,26 +142,26 @@ class CategoryManager:
                     except KeyError:
                         logger.info(f"Remove subcategory {subcategory.upper()} - from category {category.upper()} ### Category {category.upper()} had been previously removed.")
                     self._remove_subcategories(self.categories, subcategory)
-        # self.categories_filtered = self.categories
 
 
-    def generate_domain_taxonomies(self) -> None:
+    def generate_taxonomies(self) -> None:
         for domain in self.domains:
-            # if filtered:
-            #     domain_taxonomy = self._get_subcategories_dfs(self.categories_filtered, domain)
-            # else:
             domain_taxonomy = self._get_subcategories_dfs(self.categories, domain)
-            self.domain_taxonomies[domain] = domain_taxonomy
+            self.taxonomies[domain] = domain_taxonomy
 
 
-    def save_domain_taxonomies(self, output_path: str, prefix: str) -> None:
+    def save_taxonomies(self, output_path: str, prefix: str) -> None:
         for domain in self.domains:
-            if domain in self.domain_taxonomies:
-                domain_taxonomy: taxonomy = self.domain_taxonomies[domain]
+            if domain in self.taxonomies:
+                domain_taxonomy: taxonomy = self.taxonomies[domain]
                 category_name = domain.replace(" ", "_").lower()
                 filename = f"{output_path}{prefix}{category_name}_categories_degree_{self.degree}.json"
                 with open(filename, "w") as f:
                     json.dump({domain: domain_taxonomy}, f, indent=4, ensure_ascii=False)
+
+
+    def get_taxonomies(self) -> taxonomy:
+        return self.taxonomies
 
 
     @staticmethod
@@ -219,11 +214,11 @@ if __name__ == "__main__":
     degree: int = 3
     
     cm_in_place = CategoryManager(domains, full_match_blacklist, partial_match_blacklist, degree)
-    cm_in_place.get_categories(filter_in_place=True)
+    cm_in_place.retrieve_categories(filter_in_place=True)
     pprint.pprint(cm_in_place.categories)
     
     cm = CategoryManager(domains, full_match_blacklist, partial_match_blacklist, degree)
-    cm.get_categories(filter_in_place=False)
+    cm.retrieve_categories(filter_in_place=False)
     pprint.pprint(cm.categories)
 
     output_cats = cm._get_subcategories_dfs(cm.categories, "Códigos jurídicos")
@@ -231,7 +226,7 @@ if __name__ == "__main__":
     output_cats = cm._get_subcategories_dfs(cm.categories, "Códigos por país")
     pprint.pprint(output_cats)
     
-    cm.filter_categories()
+    cm.filter_subcategories()
     pprint.pprint(cm.categories)
     cm_in_place.categories == cm.categories
 
@@ -239,4 +234,4 @@ if __name__ == "__main__":
     output_cats == cm.categories
 
     cm_pipeline = CategoryManager(domains, full_match_blacklist, partial_match_blacklist, degree)
-    cm_pipeline.get_domain_taxonomies(output_path="temp/", prefix="test_")
+    cm_pipeline.retrieve_taxonomies(output_path="temp/", prefix="test_")
