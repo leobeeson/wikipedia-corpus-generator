@@ -1,7 +1,7 @@
+from src.utils.custom_types import category_label, taxonomy
 from src.category_manager import CategoryManager
 from src.page_manager import PageManager
 from src.loggers.log_utils import setup_logger
-from src.utils.custom_types import category_label, category_tree, taxonomy
 
 
 logger = setup_logger("")
@@ -64,9 +64,11 @@ def main():
     ]
     degree = 2
     cm = CategoryManager(domains, full_match_blacklist, partial_match_blacklist, degree)
-    cm.retrieve_taxonomies(prefix="filtered_gamma_")
+    cm.retrieve_taxonomies(prefix="filtered_delta_")
     taxonomies: taxonomy = cm.get_taxonomies()
-
+    pm = PageManager(taxonomies, degree)
+    pm.retrieve_taxonomy_pages(prefix="epsilon_")
+    pages = pm.get_pages()
 
 if __name__ == "__main__":
     main()

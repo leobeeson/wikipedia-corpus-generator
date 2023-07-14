@@ -1,28 +1,48 @@
 import requests
+import json
 import logging
+
+
+from src.utils.telemetry import timeit
+from src.utils.custom_types import category_pages, category_label, taxonomy, category_tree, page_label
 
 
 logger = logging.getLogger(__name__)
 
 
-from src.utils.telemetry import timeit
-
-
 class PageManager:
 
 
-    def __init__(self) -> None:
-        self.pages: dict[str, list[str]] = {}
+    def __init__(self, taxonomies: taxonomy, degree: int) -> None:
+        self.taxonomies: taxonomy = taxonomies
+        self.degree: int = degree
+        self.pages: category_pages = {}
+
+
+    def retrieve_taxonomy_pages(self,
+                                save: bool = True,
+                                output_path: str = "outputs/",
+                                prefix: str = ""
+                                ) -> None:
+            self.retrieve_domain_pages()
+            if save:
+                self.save_pages(output_path, prefix)
 
 
     @timeit
-    def get_pages_tree(self, categories: dict[str, list[str]]) -> dict[str, list[str]]:
-        for category in categories:
-            self.pages[category] = self.get_category_pages(category)
-        return self.pages
+    def retrieve_domain_pages(self) -> category_pages:
+        for domain in self.taxonomies:
+            domain_taxonomy: category_tree = self.taxonomies[domain]
+            for category in domain_taxonomy:
+                subcategories: list[category_label] = domain_taxonomy[category]
+                for subcategory in subcategories:
+                    if subcategory not in self.pages:
+                        self.pages[subcategory] = self.retrieve_category_pages(subcategory)
+                    else:
+                        self.pages[subcategory] += self.retrieve_category_pages(subcategory)
 
 
-    def get_category_pages(self, category: str) -> list[str]:
+    def retrieve_category_pages(self, category: str) -> list[page_label]:
         S = requests.Session()
         URL = "https://es.wikipedia.org/w/api.php"
         PARAMS = {
@@ -34,7 +54,7 @@ class PageManager:
             "cmlimit": 500
         }
 
-        pages = []
+        pages: list[page_label] = []
         while True:
             try:
                 R = S.get(url=URL, params=PARAMS)
@@ -65,10 +85,57 @@ class PageManager:
         return pages
 
 
+    def save_pages(self, output_path: str, prefix: str) -> None:
+        for domain in self.taxonomies:
+            domain_pages: category_pages = {}
+            domain_taxonomy: category_tree = self.taxonomies[domain]
+            for category in domain_taxonomy:
+                subcategories: list[category_label] = domain_taxonomy[category]
+                for subcategory in subcategories:
+                    domain_pages[subcategory] = self.pages[subcategory]
+            domain_name = domain.replace(" ", "_").lower()
+            filename = f"{output_path}{prefix}{domain_name}_pages_degree_{self.degree}.json"
+            with open(filename, "w") as out_file:
+                json.dump({domain: domain_pages}, out_file, indent=4, ensure_ascii=False)
+
+
+    def get_pages(self) -> category_pages:
+        return self.pages
+
+
 if __name__ == "__main__":
+    import pprint
     from category_manager import CategoryManager
+    positive_domains = ["Códigos jurídicos"]
     cm = CategoryManager()
-    categories = cm.get_category_tree("Términos jurídicos", 2)
+    categories = cm.retrieve_categories(positive_domains, 3)
+    full_match_blacklist: list[str] = ["Sharia"]
+    partial_match_blacklist: list[str] = [
+        "por país",
+        "LGBT", 
+        "brujería",
+        "Anexos",
+        "por continente",
+        "por fecha",
+        "por siglo",
+        "por década",
+        "por año",
+        "por período",
+        "por país",
+        "por territorio",
+        "por departamento",
+        "por localidad",
+        "por región",
+        "Ministros",
+        "Presidentes",
+        "Gerentes",
+        "Directores",
+        "Actores",
+        "Actrices",
+        "Directoras"
+    ]
+    cm.filter_subcategories(cm.categories, full_match_blacklist, partial_match_blacklist)
+    pprint.pprint(cm.categories_filtered)
     pm = PageManager()
-    pages = pm.get_pages_tree(categories)
-    print(pages)
+    pages = pm.retrieve_domain_pages(categories)
+    pprint.pprint(pages)

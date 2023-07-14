@@ -154,10 +154,10 @@ class CategoryManager:
         for domain in self.domains:
             if domain in self.taxonomies:
                 domain_taxonomy: taxonomy = self.taxonomies[domain]
-                category_name = domain.replace(" ", "_").lower()
-                filename = f"{output_path}{prefix}{category_name}_categories_degree_{self.degree}.json"
-                with open(filename, "w") as f:
-                    json.dump({domain: domain_taxonomy}, f, indent=4, ensure_ascii=False)
+                domain_name = domain.replace(" ", "_").lower()
+                filename = f"{output_path}{prefix}{domain_name}_categories_degree_{self.degree}.json"
+                with open(filename, "w") as out_file:
+                    json.dump({domain: domain_taxonomy}, out_file, indent=4, ensure_ascii=False)
 
 
     def get_taxonomies(self) -> taxonomy:

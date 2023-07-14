@@ -18,7 +18,7 @@ class ContentManager:
         self.page_contents: dict[category_label, list[dict[page_label, page_text]]] = defaultdict(list)
 
 
-    def get_text_from_pages(self) -> dict[category_label, list[dict[page_label, page_text]]]:
+    def get_text_from_pages(self, save: bool = True) -> dict[category_label, list[dict[page_label, page_text]]]:
         for category in self.pages:
             for page in self.pages[category]:
                 self.get_text_from_page(page, category)
