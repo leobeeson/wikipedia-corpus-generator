@@ -1,5 +1,6 @@
 import requests
 import re
+import logging
 
 
 from bs4 import BeautifulSoup
@@ -8,6 +9,9 @@ from collections import defaultdict
 
 from src.utils.telemetry import timeit
 from src.utils.custom_types import category_label, page_label, page_text, category_pages, corpus
+
+
+logger = logging.getLogger(__name__)
 
 
 class ContentManager:
@@ -20,8 +24,20 @@ class ContentManager:
         self.page_contents: corpus = defaultdict(list)
 
 
+    def retrieve_taxonomy_content(self, 
+                                  save: bool = True,
+                                  output_path: str = "outputs/",
+                                  prefix: str = ""
+                                  ) -> None:
+        for category in self.pages:
+            for page in self.pages[category]:
+                self.retrieve_page_content(page, category)
+        if save:
+            self.save_taxonomy_content()
+
+
     @timeit
-    def retrieve_pages_content(self, save: bool = True) -> None:
+    def retrieve_pages_content(self) -> None:
         for category in self.pages:
             for page in self.pages[category]:
                 self.retrieve_page_content(page, category)
@@ -46,12 +62,20 @@ class ContentManager:
         soup = BeautifulSoup(html_content, 'html.parser')
         
         content: list[str] = []
-
+        blacklisted_section: bool = False
         for tag in soup.find('div', {'class': 'mw-parser-output'}).children:
+            
+            if blacklisted_section:
+                if tag.name not in ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']:
+                    continue
+                else:
+                    blacklisted_section = False
+
             tag_text = tag.get_text().strip()
 
             if tag.name in ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']:
                 if any(child.get('id') in self.header_id_blacklist for child in tag.find_all('span')):
+                    blacklisted_section = True
                     continue
                 tag_text = re.sub(r'\[.*?\]$', '', tag_text)
                 content.append(f"{tag.name}: {tag_text}")           
@@ -67,19 +91,13 @@ class ContentManager:
             if tag.name == 'p':
                 content.append(f"{tag.name}: {tag_text}")
 
+            if tag.name == 'dl':
+                for dt in tag.find_all('dt'):
+                    dt_text = dt.get_text().strip()
+                    content.append(f"{dt.name}: {dt_text}")
+                continue
+
         self.page_contents[category].append({page_title: content})
-
-
-    def truncate_li(self, list_items: list[str]) -> list[str]:
-        truncators: list[str] = [
-            "Proyectos Wikimedia", 
-            "Identificadores", 
-            "Diccionarios y enciclopedias"
-            ]
-        for i, li in enumerate(list_items):
-            if li in truncators:
-                return list_items[:i]
-        return list_items
 
 
     def get_corpus(self) -> corpus:
@@ -120,3 +138,9 @@ if __name__ == "__main__":
     cm = ContentManager(pages, header_id_blacklist, li_truncators)
     cm.retrieve_pages_content()
     cm.page_contents
+
+    # "li: Portal:Derecho. Contenido relacionado con Derecho."
+    # "li: Codificación",
+    # "li: Código de comercio",
+    # "li: Fuentes extralegales",
+    # "li: Categoría:Códigos civiles", "li: Guzmán Brito, A. (2000). La codificación civil en Iberoamérica. Siglos XIX y XX. Santiago: Editorial Jurídica de Chile. ISBN\xa0956-10-1310-X."
