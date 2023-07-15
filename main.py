@@ -1,4 +1,4 @@
-from src.utils.custom_types import category_label, taxonomy
+from src.utils.custom_types import category_label, taxonomy, category_pages
 from src.category_manager import CategoryManager
 from src.page_manager import PageManager
 from src.loggers.log_utils import setup_logger
@@ -68,7 +68,7 @@ def main():
     taxonomies: taxonomy = cm.get_taxonomies()
     pm = PageManager(taxonomies, degree)
     pm.retrieve_taxonomy_pages(prefix="epsilon_")
-    pages = pm.get_pages()
+    pages: category_pages = pm.get_pages()
 
 if __name__ == "__main__":
     main()
