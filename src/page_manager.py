@@ -34,12 +34,16 @@ class PageManager:
         for domain in self.taxonomies:
             domain_taxonomy: category_tree = self.taxonomies[domain]
             for category in domain_taxonomy:
-                subcategories: list[category_label] = domain_taxonomy[category]
-                for subcategory in subcategories:
-                    if subcategory not in self.pages:
-                        self.pages[subcategory] = self.retrieve_category_pages(subcategory)
-                    else:
-                        self.pages[subcategory] += self.retrieve_category_pages(subcategory)
+                if category in self.pages:
+                    continue
+                else:
+                    self.pages[category] = self.retrieve_category_pages(category)
+                    subcategories: list[category_label] = domain_taxonomy[category]
+                    for subcategory in subcategories:
+                        if subcategory in self.pages:
+                            continue
+                        else:
+                            self.pages[subcategory] = self.retrieve_category_pages(subcategory)
 
 
     def retrieve_category_pages(self, category: str) -> list[page_label]:
