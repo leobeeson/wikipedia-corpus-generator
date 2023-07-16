@@ -4,7 +4,7 @@ import json
 
 
 from src.utils.custom_types import category_label, category_tree, taxonomy
-from src.utils.telemetry import timeit
+from src.utils.telemetry import time_category_iteration
 
 
 logger = logging.getLogger(__name__)
@@ -28,7 +28,6 @@ class CategoryManager:
         self.taxonomies: taxonomy = {}
 
 
-    @timeit
     def retrieve_taxonomies(
             self,
             filter_in_place: bool = True,
@@ -44,7 +43,6 @@ class CategoryManager:
             self.save_taxonomies(output_path, prefix)
 
     
-    @timeit
     def retrieve_categories(self, filter_in_place: bool) -> None:
         for domain in self.domains:
             if filter_in_place:
@@ -54,6 +52,7 @@ class CategoryManager:
                 self.recursive_category_search(domain, self.degree)
 
     
+    @time_category_iteration
     def recursive_category_search(self, domain: category_label, degree: int, current_degree: int = 0) -> None:
         if current_degree > degree:
             return
@@ -65,9 +64,10 @@ class CategoryManager:
         for subcategory in subcategories:
             self.recursive_category_search(subcategory, degree, current_degree)
 
-
+    
+    @time_category_iteration
     def filtered_recursive_category_search(self, domain: category_label, degree: int, current_degree: int = 0) -> None:
-        if current_degree > degree:
+        if current_degree >= degree:
             return
 
         subcategories: list[category_label] = self.retrieve_subcategories(domain)

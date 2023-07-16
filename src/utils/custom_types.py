@@ -8,5 +8,5 @@ taxonomy = dict[category_label, category_tree]
 # Pages:
 page_label = str
 category_pages = dict[category_label, list[page_label]]
-page_text = str
+page_text = list[str]
 corpus = dict[page_label, page_text]

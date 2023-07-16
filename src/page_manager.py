@@ -3,7 +3,7 @@ import json
 import logging
 
 
-from src.utils.telemetry import timeit
+from src.utils.telemetry import time_category_iteration
 from src.utils.custom_types import category_pages, category_label, taxonomy, category_tree, page_label
 
 
@@ -24,24 +24,28 @@ class PageManager:
                                 output_path: str = "outputs/",
                                 prefix: str = ""
                                 ) -> None:
-            self.retrieve_domain_pages()
+            for domain in self.taxonomies:
+                self.retrieve_domain_pages(domain)
             if save:
                 self.save_pages(output_path, prefix)
 
 
-    @timeit
-    def retrieve_domain_pages(self) -> category_pages:
-        for domain in self.taxonomies:
+    @time_category_iteration
+    def retrieve_domain_pages(self, domain: category_label) -> category_pages:        
+            if domain in self.pages:
+                pass
+            else:
+                self.pages[domain] = self.retrieve_category_pages(domain)
             domain_taxonomy: category_tree = self.taxonomies[domain]
             for category in domain_taxonomy:
                 if category in self.pages:
-                    continue
+                    pass
                 else:
                     self.pages[category] = self.retrieve_category_pages(category)
                     subcategories: list[category_label] = domain_taxonomy[category]
                     for subcategory in subcategories:
                         if subcategory in self.pages:
-                            continue
+                            pass
                         else:
                             self.pages[subcategory] = self.retrieve_category_pages(subcategory)
 
