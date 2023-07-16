@@ -53,3 +53,5 @@ logs/
 outputs
 !outputs/.gitkeep
 temp
+
+qa/
