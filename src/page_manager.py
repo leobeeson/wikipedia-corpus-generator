@@ -24,10 +24,10 @@ class PageManager:
                                 output_path: str = "outputs/",
                                 prefix: str = ""
                                 ) -> None:
-            for domain in self.taxonomies:
-                self.retrieve_domain_pages(domain)
-            if save:
-                self.save_pages(output_path, prefix)
+        for domain in self.taxonomies:
+            self.retrieve_domain_pages(domain)
+        if save:
+            self.save_pages(output_path, prefix)
 
 
     @time_category_iteration
@@ -42,12 +42,12 @@ class PageManager:
                     pass
                 else:
                     self.pages[category] = self.retrieve_category_pages(category)
-                    subcategories: list[category_label] = domain_taxonomy[category]
-                    for subcategory in subcategories:
-                        if subcategory in self.pages:
-                            pass
-                        else:
-                            self.pages[subcategory] = self.retrieve_category_pages(subcategory)
+                subcategories: list[category_label] = domain_taxonomy[category]
+                for subcategory in subcategories:
+                    if subcategory in self.pages:
+                        pass
+                    else:
+                        self.pages[subcategory] = self.retrieve_category_pages(subcategory)
 
 
     def retrieve_category_pages(self, category: str) -> list[page_label]:

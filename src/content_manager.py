@@ -43,9 +43,7 @@ class ContentManager:
 
 
     def retrieve_taxonomy_content(self, 
-                                  save: bool = True,
-                                  output_path: str = "outputs/",
-                                  prefix: str = ""
+                                  save: bool = True
                                   ) -> None:
         progress_bar = tqdm(total=self.total_pages, desc='Retrieving content', dynamic_ncols=True)
         
@@ -64,14 +62,14 @@ class ContentManager:
 
     @time_category_iteration
     def retrieve_pages_content(self, category: category_label, progress_bar: tqdm) -> None:
-            for page in self.pages[category]:
-                if page in self.page_contents:
-                    progress_bar.update()
-                    continue
-                content = self.retrieve_page_content(page)
-                self.page_contents[page] = content
-                self.domain_contents[page] = content
+        for page in self.pages[category]:
+            if page in self.page_contents:
                 progress_bar.update()
+                continue
+            content = self.retrieve_page_content(page)
+            self.page_contents[page] = content
+            self.domain_contents[page] = content
+            progress_bar.update()
         
 
     
@@ -134,8 +132,12 @@ class ContentManager:
     def save_content(self, domain: category_label) -> None:
         domain_name = domain.replace(" ", "_").lower()
         filename = f"{self.output_path}{self.prefix}{domain_name}_content_degree_{self.degree}.json"
-        with open(filename, "w") as out_file:
-            json.dump({domain: self.domain_contents}, out_file, indent=4, ensure_ascii=False)
+        
+        if not os.path.exists(filename):
+            with open(filename, "w") as out_file:
+                json.dump({domain: self.domain_contents}, out_file, indent=4, ensure_ascii=False)
+        else:
+            logger.info(f"Content for domain {domain_name.upper()} already exists, skipping the saving operation.")
 
 
     def update_page_contents_from_disk(self) -> None:

@@ -146,7 +146,7 @@ class CategoryManager:
 
     def generate_taxonomies(self) -> None:
         for domain in self.domains:
-            domain_taxonomy = self._get_subcategories_dfs(self.categories, domain)
+            domain_taxonomy = self._get_subcategories_dfs(self.categories, domain, self.degree)
             self.taxonomies[domain] = domain_taxonomy
 
 
@@ -165,7 +165,7 @@ class CategoryManager:
 
 
     @staticmethod
-    def _remove_subcategories(categories: dict[category_label, list[category_label]], category: category_label) -> None:
+    def _remove_subcategories(categories: category_tree, category: category_label) -> None:
         if category in categories:
             for subcategory in categories[category]:
                 CategoryManager._remove_subcategories(categories, subcategory)
@@ -174,12 +174,16 @@ class CategoryManager:
 
 
     @staticmethod
-    def _get_subcategories_dfs(category_tree: dict[category_label, list[category_label]], domain: category_label) -> dict[category_label, list[category_label]]:
-        subcategory_tree: dict[category_label, list[category_label]] = {}
-        if domain in category_tree:
-            subcategory_tree[domain] = category_tree[domain]
-            for subcategory in category_tree[domain]:
-                subcategory_tree.update(CategoryManager._get_subcategories_dfs(category_tree, subcategory))
+    def _get_subcategories_dfs(category_tree_: category_tree, domain: category_label, degree: int, current_degree: int = 0) -> category_tree:
+        if current_degree > degree:
+            return {}
+        
+        subcategory_tree: category_tree = {}
+        if domain in category_tree_:
+            subcategory_tree[domain] = category_tree_[domain]
+            current_degree += 1
+            for subcategory in category_tree_[domain]:
+                subcategory_tree.update(CategoryManager._get_subcategories_dfs(category_tree_, subcategory, degree, current_degree))
         return subcategory_tree
 
 
